@@ -58,6 +58,23 @@ jobs:
           # Multi-Config), so ctest needs the config: without it, plain add_test() tests
           # lose their labels and report "Not Run".
           scripts/run_unit_tests.sh "${{ inputs.test-dir }}" Release
+      # PillSlicer: report failing tests as annotations, readable through the API without the artifacts.
+      - name: Annotate failed tests
+        if: ${{ failure() }}
+        shell: bash
+        run: |
+          PYBIN=$(command -v python3 || command -v python)
+          "$PYBIN" - <<'PY' || true
+          import xml.etree.ElementTree as ET
+          def esc(s): return s.replace('%', '%25').replace('\r', '').replace('\n', '%0A')
+          root = ET.parse('ctest_results.xml').getroot()
+          for case in root.iter('testcase'):
+              if case.get('status') in ('fail', 'failed') or case.find('failure') is not None:
+                  out = case.findtext('system-out') or ''
+                  lines = [l for l in out.splitlines() if l.strip()]
+                  keep = [l for l in lines if any(k in l for k in ('FAILED', 'REQUIRE', 'CHECK', 'with expansion', 'with message', ' == ', ' > ', 'due to', 'test cases'))]
+                  print('::error title=' + esc(case.get('name', '?')) + '::' + esc('\n'.join((keep or lines)[-40:])[:3500]))
+          PY
       - name: Upload Test Logs
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
