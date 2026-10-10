@@ -9,6 +9,8 @@
 #include <limits>
 #include <utility>
 #define SLIC3R_APP_FULL_NAME "PillSlicer"
+// Producer name written into G-code and config headers. Kept as OrcaSlicer for compatibility, see header_slic3r_generated().
+#define SLIC3R_GCODE_PRODUCER "OrcaSlicer"
 #define GCODEVIEWER_APP_NAME "OrcaSlicer G-code Viewer"
 #define GCODEVIEWER_APP_KEY  "OrcaSlicerGcodeViewer"
 #define GCODEVIEWER_BUILD_ID std::string("OrcaSlicer G-code Viewer-") + std::string(SLIC3R_VERSION) + std::string("-RC")

@@ -568,7 +568,10 @@ public:
     // If ! m_slicing_params.valid, recalculate.
     void                    update_slicing_parameters();
 
-    static PrintObjectConfig object_config_from_model_object(const PrintObjectConfig &default_object_config, const ModelObject &object, size_t num_extruders, std::vector<int>& variant_index);
+    static PrintObjectConfig object_config_from_model_object(const PrintObjectConfig &default_object_config, const ModelObject &object, size_t num_extruders, std::vector<int>& variant_index, bool independent_support_layer_height);
+    // Replaces support_top_z_distance with the filament override of the object's main filament, if any.
+    // Without independent support layers the gap is snapped to a whole number of layers.
+    static void apply_filament_support_top_z_distance(PrintObjectConfig &config, const DynamicPrintConfig &object_settings, bool independent_support_layer_height);
 
 private:
     void make_perimeters();

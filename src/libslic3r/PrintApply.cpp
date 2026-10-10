@@ -1811,8 +1811,10 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
             bool object_config_changed = ! model_object.config.timestamp_matches(model_object_new.config);
 			if (object_config_changed)
 				model_object.config.assign_config(model_object_new.config);
-            if (! object_diff.empty() || object_config_changed || num_extruders_changed ) {
-                PrintObjectConfig new_config = PrintObject::object_config_from_model_object(m_default_object_config, model_object, num_extruders, print_variant_index);
+            // PillSlicer: the filament support gap is snapped to layers unless support layers are independent.
+            const bool support_layering_changed = std::find(print_diff.begin(), print_diff.end(), "independent_support_layer_height") != print_diff.end();
+            if (! object_diff.empty() || object_config_changed || num_extruders_changed || support_layering_changed) {
+                PrintObjectConfig new_config = PrintObject::object_config_from_model_object(m_default_object_config, model_object, num_extruders, print_variant_index, m_config.independent_support_layer_height.value);
                 for (const PrintObjectStatus &print_object_status : print_object_status_db.get_range(model_object)) {
                     t_config_option_keys diff = print_object_status.print_object->config().diff(new_config);
                     if (! diff.empty()) {
@@ -1887,7 +1889,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
             auto print_object_apply_config = [this, &print_object_last, model_object, num_extruders, &print_variant_index](PrintObject *print_object) {
                 print_object->config_apply(print_object_last ?
                     print_object_last->config() :
-                    PrintObject::object_config_from_model_object(m_default_object_config, *model_object, num_extruders, print_variant_index));
+                    PrintObject::object_config_from_model_object(m_default_object_config, *model_object, num_extruders, print_variant_index, m_config.independent_support_layer_height.value));
                 print_object_last = print_object;
             };
             if (old.empty()) {

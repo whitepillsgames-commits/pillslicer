@@ -4169,6 +4169,22 @@ void PrintConfigDef::init_fff_params()
     def->nullable = true;
     def->set_default_value(new ConfigOptionFloatsNullable{ ConfigOptionFloatsNullable::nil_value() });
 
+    // PillSlicer: materials bond to their supports very differently (PETG far more than PLA),
+    // so the gap that releases cleanly belongs to the filament as much as to the process.
+    def = this->add("filament_support_top_z_distance", coFloats);
+    def->label = L("Top Z distance");
+    def->category = L("Support");
+    def->tooltip = L("Filament-specific override for the support top Z distance: the gap between the top of the supports "
+                     "and the part printed with this filament. Materials that bond strongly to their supports, such as PETG, "
+                     "need a larger gap to release cleanly. An object uses the value of its main filament, unless its own "
+                     "settings set the top Z distance.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 1;
+    def->mode = comAdvanced;
+    def->nullable = true;
+    def->set_default_value(new ConfigOptionFloatsNullable{ ConfigOptionFloatsNullable::nil_value() });
+
     def = this->add("fuzzy_skin", coEnum);
     def->label = L("Fuzzy skin");
     def->category = L("Others");
@@ -10078,6 +10094,7 @@ std::set<std::string> filament_options_with_variant = {
     "filament_ironing_spacing",
     "filament_ironing_inset",
     "filament_ironing_speed",
+    "filament_support_top_z_distance",
     // Orca: pressure advance
     "enable_pressure_advance",
     "pressure_advance",

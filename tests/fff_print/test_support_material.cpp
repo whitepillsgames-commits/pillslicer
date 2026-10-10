@@ -527,3 +527,62 @@ TEST_CASE("Bottom-only support interface keeps the dense interface density", "[S
     REQUIRE(sp.bottom_interface_density > sp.support_density);
 }
 
+
+// PillSlicer: the support top Z distance can be overridden per filament.
+TEST_CASE("A filament support gap override replaces the process top Z distance", "[SupportMaterial]")
+{
+    Slic3r::Print print;
+    Slic3r::Model model;
+    Slic3r::Test::init_print({ TestMesh::overhang }, print, model, {
+        { "enable_support",                  1 },
+        { "independent_support_layer_height", 1 },
+        { "support_top_z_distance",          0.2 },
+        { "filament_support_top_z_distance", "0.3" },
+    });
+    REQUIRE_THAT(print.objects().front()->config().support_top_z_distance.value, Catch::Matchers::WithinAbs(0.3, 1e-9));
+}
+
+TEST_CASE("A nil filament support gap keeps the process top Z distance", "[SupportMaterial]")
+{
+    PrintObjectConfig config;
+    config.support_top_z_distance.value = 0.2;
+    config.filament_support_top_z_distance.values = { ConfigOptionFloatsNullable::nil_value() };
+    PrintObject::apply_filament_support_top_z_distance(config, DynamicPrintConfig(), true);
+    REQUIRE_THAT(config.support_top_z_distance.value, Catch::Matchers::WithinAbs(0.2, 1e-9));
+}
+
+TEST_CASE("The filament support gap follows the object's main filament", "[SupportMaterial]")
+{
+    PrintObjectConfig config;
+    config.support_top_z_distance.value = 0.2;
+    config.filament_support_top_z_distance.values = { 0.15, 0.3 };
+    DynamicPrintConfig object_settings;
+    object_settings.set_key_value("extruder", new ConfigOptionInt(2));
+    PrintObject::apply_filament_support_top_z_distance(config, object_settings, true);
+    REQUIRE_THAT(config.support_top_z_distance.value, Catch::Matchers::WithinAbs(0.3, 1e-9));
+}
+
+TEST_CASE("A top Z distance set on the object wins over the filament support gap", "[SupportMaterial]")
+{
+    PrintObjectConfig config;
+    config.support_top_z_distance.value = 0.12;
+    config.filament_support_top_z_distance.values = { 0.3 };
+    DynamicPrintConfig object_settings;
+    object_settings.set_key_value("support_top_z_distance", new ConfigOptionFloat(0.12));
+    PrintObject::apply_filament_support_top_z_distance(config, object_settings, true);
+    REQUIRE_THAT(config.support_top_z_distance.value, Catch::Matchers::WithinAbs(0.12, 1e-9));
+}
+
+TEST_CASE("Without independent support layers the filament support gap snaps to whole layers", "[SupportMaterial]")
+{
+    // 0.25 mm over 0.2 mm layers rounds to one layer; 0.05 mm still keeps one layer instead of becoming
+    // a zero gap, which would switch the supports to soluble-interface mode.
+    const auto [requested, expected] = GENERATE(table<double, double>({ { 0.25, 0.2 }, { 0.05, 0.2 }, { 0.38, 0.4 } }));
+    PrintObjectConfig config;
+    config.layer_height.value           = 0.2;
+    config.support_top_z_distance.value = 0.2;
+    config.filament_support_top_z_distance.values = { requested };
+    PrintObject::apply_filament_support_top_z_distance(config, DynamicPrintConfig(), false);
+    CAPTURE(requested);
+    REQUIRE_THAT(config.support_top_z_distance.value, Catch::Matchers::WithinAbs(expected, 1e-9));
+}

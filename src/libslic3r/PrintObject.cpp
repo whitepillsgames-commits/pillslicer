@@ -1539,6 +1539,7 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "elefant_foot_layers_density"
             || opt_key == "support_top_z_distance"
             || opt_key == "support_bottom_z_distance"
+            || opt_key == "filament_support_top_z_distance"
             || opt_key == "xy_hole_compensation"
             || opt_key == "xy_contour_compensation"
             //BBS: [Arthur] the following params affect bottomBridge surface type detection
@@ -4063,7 +4064,7 @@ static void clamp_feature_filament_to_valid(ConfigOptionInt &opt, size_t num_ext
         opt.value = 1;
 }
 
-PrintObjectConfig PrintObject::object_config_from_model_object(const PrintObjectConfig &default_object_config, const ModelObject &object, size_t num_extruders, std::vector<int>& variant_index)
+PrintObjectConfig PrintObject::object_config_from_model_object(const PrintObjectConfig &default_object_config, const ModelObject &object, size_t num_extruders, std::vector<int>& variant_index, bool independent_support_layer_height)
 {
     PrintObjectConfig config = default_object_config;
     {
@@ -4074,7 +4075,28 @@ PrintObjectConfig PrintObject::object_config_from_model_object(const PrintObject
     // Clamp invalid extruders to the default extruder (with index 1).
     clamp_exturder_to_default(config.support_filament,           num_extruders);
     clamp_exturder_to_default(config.support_interface_filament, num_extruders);
+    apply_filament_support_top_z_distance(config, object.config.get(), independent_support_layer_height);
     return config;
+}
+
+void PrintObject::apply_filament_support_top_z_distance(PrintObjectConfig &config, const DynamicPrintConfig &object_settings, bool independent_support_layer_height)
+{
+    // A top Z distance set on the object itself is a deliberate choice and wins over the filament.
+    if (object_settings.has("support_top_z_distance"))
+        return;
+    // The gap separates the supports from the part, so it follows the part's main filament.
+    const ConfigOptionInt *opt_extruder = object_settings.opt<ConfigOptionInt>("extruder");
+    const int extruder = (opt_extruder != nullptr && opt_extruder->value > 0) ? opt_extruder->value : 1;
+    const size_t filament_idx = size_t(extruder - 1);
+    const ConfigOptionFloatsNullable &overrides = config.filament_support_top_z_distance;
+    if (filament_idx >= overrides.size() || overrides.is_nil(filament_idx))
+        return;
+    double gap = overrides.get_at(filament_idx);
+    // Supports that share the object's layers can only stop on a layer boundary, as the GUI enforces for the
+    // process value. Keep a positive gap at one layer at least: zero would switch to soluble-interface mode.
+    if (!independent_support_layer_height && config.layer_height.value > EPSILON && gap > 0.)
+        gap = std::max(1., std::round(gap / config.layer_height.value)) * config.layer_height.value;
+    config.support_top_z_distance.value = gap;
 }
 
 const std::string                                                    key_extruder { "extruder" };
@@ -4285,7 +4307,7 @@ SlicingParameters PrintObject::slicing_parameters(const DynamicPrintConfig &full
 	default_region_config.apply(full_config, true);
     // BBS
 	size_t              filament_extruders = print_config.filament_diameter.size();
-	object_config = object_config_from_model_object(object_config, model_object, filament_extruders, variant_index);
+	object_config = object_config_from_model_object(object_config, model_object, filament_extruders, variant_index, print_config.independent_support_layer_height.value);
 
 	std::vector<unsigned int> object_extruders;
 	for (const ModelVolume* model_volume : model_object.volumes)

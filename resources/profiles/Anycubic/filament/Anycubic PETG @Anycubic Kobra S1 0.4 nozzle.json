@@ -238,7 +238,7 @@
 		"20"
 	],
 	"support_material_interface_fan_speed": [
-		"-1"
+		"90"
 	],
 	"temperature_vitrification": [
 		"70"
@@ -248,5 +248,8 @@
 	],
 	"textured_plate_temp_initial_layer": [
 		"70"
+	],
+	"filament_support_top_z_distance": [
+		"0.25"
 	]
 }

@@ -84,5 +84,6 @@
 	"top_shell_layers": "6",
 	"bottom_shell_layers": "4",
 	"sparse_infill_density": "15%",
-	"reduce_crossing_wall": "1"
+	"reduce_crossing_wall": "1",
+	"support_ironing": "1"
 }

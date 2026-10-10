@@ -241,7 +241,7 @@
 		"20"
 	],
 	"support_material_interface_fan_speed": [
-		"-1"
+		"100"
 	],
 	"temperature_vitrification": [
 		"55"

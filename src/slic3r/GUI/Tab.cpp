@@ -4297,13 +4297,13 @@ void TabFilament::add_filament_overrides_page()
                                      })
         append_retraction_option(toolchange_optgroup, opt_key, extruder_idx);
 
-    ConfigOptionsGroupShp ironing_optgroup = page->new_optgroup(L("Ironing"), L"param_ironing");
-    auto append_ironing_option = [this, ironing_optgroup](const std::string& opt_key, int opt_index)
+    // Overrides of a process option: the filament key is the process key prefixed with "filament_".
+    auto append_process_override_option = [this](ConfigOptionsGroupShp optgroup, const std::string& opt_key, int opt_index)
     {
         Line line {"",""};
-        line = ironing_optgroup->create_single_option_line(ironing_optgroup->get_option(opt_key, opt_index));
+        line = optgroup->create_single_option_line(optgroup->get_option(opt_key, opt_index));
 
-        line.near_label_widget = [this, optgroup_wk = ConfigOptionsGroupWkp(ironing_optgroup), opt_key, opt_index](wxWindow* parent) {
+        line.near_label_widget = [this, optgroup_wk = ConfigOptionsGroupWkp(optgroup), opt_key, opt_index](wxWindow* parent) {
             auto check_box = new ::CheckBox(parent); // ORCA modernize checkboxes
             check_box->Bind(wxEVT_TOGGLEBUTTON, [this, optgroup_wk, opt_key, opt_index](wxCommandEvent& evt) {
                 const bool is_checked = evt.IsChecked();
@@ -4374,15 +4374,19 @@ void TabFilament::add_filament_overrides_page()
             return check_box;
         };
 
-        ironing_optgroup->append_line(line);
+        optgroup->append_line(line);
     };
 
+    ConfigOptionsGroupShp ironing_optgroup = page->new_optgroup(L("Ironing"), L"param_ironing");
     for (const std::string opt_key : {  "filament_ironing_flow",
                                         "filament_ironing_spacing",
                                         "filament_ironing_inset",
                                         "filament_ironing_speed"
                                      })
-        append_ironing_option(opt_key, extruder_idx);
+        append_process_override_option(ironing_optgroup, opt_key, extruder_idx);
+
+    ConfigOptionsGroupShp support_optgroup = page->new_optgroup(L("Support"), L"param_support");
+    append_process_override_option(support_optgroup, "filament_support_top_z_distance", extruder_idx);
 }
 
 void TabFilament::update_filament_overrides_page(const DynamicPrintConfig* printers_config)
@@ -4471,20 +4475,19 @@ void TabFilament::update_filament_overrides_page(const DynamicPrintConfig* print
         }
     }
 
-    // Handle ironing overrides
-    const auto og_ironing_it = std::find_if(page->m_optgroups.begin(), page->m_optgroups.end(), [](const ConfigOptionsGroupShp og) { return og->title == "Ironing"; });
-    if (og_ironing_it != page->m_optgroups.end())
+    // Handle overrides of process options (ironing, support): the process key is the filament key without "filament_".
+    const std::vector<std::pair<std::string, std::vector<std::string>>> process_override_groups = {
+        { "Ironing", { "filament_ironing_flow", "filament_ironing_spacing", "filament_ironing_inset", "filament_ironing_speed" } },
+        { "Support", { "filament_support_top_z_distance" } },
+    };
+    for (const auto& [group_title, opt_keys] : process_override_groups)
     {
-        ConfigOptionsGroupShp ironing_optgroup = *og_ironing_it;
+        const auto og_it = std::find_if(page->m_optgroups.begin(), page->m_optgroups.end(), [&group_title](const ConfigOptionsGroupShp og) { return og->title == group_title; });
+        if (og_it == page->m_optgroups.end())
+            continue;
+        ConfigOptionsGroupShp optgroup = *og_it;
 
-        std::vector<std::string> ironing_opt_keys = {
-            "filament_ironing_flow",
-            "filament_ironing_spacing",
-            "filament_ironing_inset",
-            "filament_ironing_speed"
-        };
-
-        for (const std::string& opt_key : ironing_opt_keys)
+        for (const std::string& opt_key : opt_keys)
         {
             if (m_overrides_options.find(opt_key) == m_overrides_options.end())
                 continue;
@@ -4493,14 +4496,14 @@ void TabFilament::update_filament_overrides_page(const DynamicPrintConfig* print
             m_overrides_options[opt_key]->Enable(true);
             m_overrides_options[opt_key]->SetValue(is_checked);
 
-            Field* field = ironing_optgroup->get_fieldc(opt_key, 0);
+            Field* field = optgroup->get_fieldc(opt_key, 0);
             if (field == nullptr) continue;
 
             if (!is_checked) {
-                // Get the default value from the process config (ironing_* without filament_ prefix)
+                // Show the process value the filament falls back to.
                 const std::string process_opt_key = opt_key.substr(strlen("filament_"));
                 const auto process_config = m_preset_bundle->prints.get_edited_preset().config;
-                const boost::any process_config_value = ironing_optgroup->get_config_value(process_config, process_opt_key, 0);
+                const boost::any process_config_value = optgroup->get_config_value(process_config, process_opt_key, 0);
                 field->update_na_value(process_config_value);
                 field->set_value(process_config_value, false);
             }

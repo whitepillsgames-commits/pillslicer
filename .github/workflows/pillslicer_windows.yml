@@ -14,6 +14,7 @@ on:
       - 'version.inc'
       - '**/CMakeLists.txt'
       - 'localization/**'
+      - 'tests/**'
       - '.github/workflows/pillslicer_windows.yml'
 
 concurrency:
@@ -30,3 +31,12 @@ jobs:
       compiler: clang
       build-deps-only: false
     secrets: inherit
+
+  unit_tests_windows_x64:
+    name: Unit tests Windows x64
+    needs: build_windows_x64
+    if: ${{ !cancelled() && success() }}
+    uses: ./.github/workflows/unit_tests.yml
+    with:
+      os: windows-latest
+      artifact: ${{ github.sha }}-tests-windows-x64

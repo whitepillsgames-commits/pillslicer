@@ -1300,6 +1300,8 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionBool,                support_remove_small_overhang))
     ((ConfigOptionFloat,               support_top_z_distance))
     ((ConfigOptionFloat,               support_bottom_z_distance))
+    // PillSlicer: per-filament override of support_top_z_distance, nil = use the process value.
+    ((ConfigOptionFloatsNullable,      filament_support_top_z_distance))
     ((ConfigOptionInt,                 enforce_support_layers))
     ((ConfigOptionInt,                 support_filament))
     ((ConfigOptionFloatOrPercent,      support_line_width))
