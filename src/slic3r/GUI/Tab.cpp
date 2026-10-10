@@ -4480,8 +4480,11 @@ void TabFilament::update_filament_overrides_page(const DynamicPrintConfig* print
         { "Ironing", { "filament_ironing_flow", "filament_ironing_spacing", "filament_ironing_inset", "filament_ironing_speed" } },
         { "Support", { "filament_support_top_z_distance" } },
     };
-    for (const auto& [group_title, opt_keys] : process_override_groups)
+    for (const auto& group : process_override_groups)
     {
+        // Plain references rather than a structured binding: C++17 lambdas cannot capture structured bindings.
+        const std::string& group_title = group.first;
+        const std::vector<std::string>& opt_keys = group.second;
         const auto og_it = std::find_if(page->m_optgroups.begin(), page->m_optgroups.end(), [&group_title](const ConfigOptionsGroupShp og) { return og->title == group_title; });
         if (og_it == page->m_optgroups.end())
             continue;
