@@ -1836,6 +1836,18 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(false));
 
+    def = this->add("arc_overhangs", coBool);
+    def->label = L("Arc overhangs");
+    def->category = L("Quality");
+    def->tooltip = L("Print flat overhangs without supports. Where a part juts out horizontally from the layer below, "
+                     "its first overhanging layer is printed as concentric arcs fanning out from the edge it hangs from, "
+                     "each arc resting on the one printed before it. The layers above are printed normally on the arcs. "
+                     "Arcs are printed at the overhang wall speed for fully unsupported walls, with the overhang fan; "
+                     "slow speeds and strong cooling give the best results. Bridges are left to the bridge infill, and "
+                     "arcs are not generated for objects that use supports or a raft.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
     def = this->add("overhang_reverse", coBool);
     def->label = L("Reverse on even");
     def->full_label = L("Overhang reversal");

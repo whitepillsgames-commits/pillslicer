@@ -37,6 +37,8 @@ set(lisbslic3r_sources
     Algorithm/RegionExpansion.hpp
     AnyPtr.hpp
     AppConfig.cpp
+    ArcOverhang.cpp
+    ArcOverhang.hpp
     AppConfig.hpp
     Arachne/BeadingStrategy/BeadingStrategy.cpp
     Arachne/BeadingStrategy/BeadingStrategyFactory.cpp

@@ -1,4 +1,5 @@
 #include "ExPolygon.hpp"
+#include "ArcOverhang.hpp"
 #include "Config.hpp"
 #include "Exception.hpp"
 #include "Line.hpp"
@@ -805,6 +806,8 @@ void PrintObject::infill()
                 for (size_t layer_idx = range.begin(); layer_idx < range.end(); ++ layer_idx) {
                     m_print->throw_if_canceled();
                     m_layers[layer_idx]->make_fills(&m_adaptive_fill_octrees, this->m_lightning_generator.get());
+                    // PillSlicer: arcs replace the walls and infill of flat overhangs, so they come after both.
+                    make_arc_overhangs(*m_layers[layer_idx]);
                 }
             }
         );
@@ -1480,6 +1483,7 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "min_width_top_surface"
             || opt_key == "only_one_wall_first_layer"
             || opt_key == "extra_perimeters_on_overhangs"
+            || opt_key == "arc_overhangs"
             || opt_key == "detect_overhang_wall"
             || opt_key == "initial_layer_line_width"
             || opt_key == "inner_wall_line_width"
