@@ -1,0 +1,32 @@
+name: PillSlicer Windows
+
+# Builds only the Windows x64 installer, for the PillSlicer fork.
+# Run it by hand from the Actions tab ("Run workflow"), or let it run on each
+# push to main that touches the app or its profiles.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'resources/**'
+      - 'version.inc'
+      - '**/CMakeLists.txt'
+      - 'localization/**'
+      - '.github/workflows/pillslicer_windows.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build_windows_x64:
+    name: Build PillSlicer for Windows x64
+    uses: ./.github/workflows/build_check_cache.yml
+    with:
+      os: windows-latest
+      arch: x64
+      compiler: clang
+      build-deps-only: false
+    secrets: inherit
