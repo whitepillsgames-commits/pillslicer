@@ -1165,7 +1165,7 @@ static std::vector<std::string> s_Preset_print_options{
     "bottom_surface_density",
     "bottom_shell_layers",
     "bottom_shell_thickness",
-    "extra_perimeters_on_overhangs", "arc_overhangs",
+    "extra_perimeters_on_overhangs", "arc_overhangs", "arc_overhang_speed",
     "ensure_vertical_shell_thickness",
     "reduce_crossing_wall",
     "detect_thin_wall",

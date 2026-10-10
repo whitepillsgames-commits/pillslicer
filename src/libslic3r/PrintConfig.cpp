@@ -1848,6 +1848,16 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(false));
 
+    def = this->add("arc_overhang_speed", coFloat);
+    def->label = L("Arc overhang speed");
+    def->category = L("Speed");
+    def->tooltip = L("Speed of the arcs of arc overhangs. Each arc must cool and set before the next one leans on it, "
+                     "so this is much slower than any other speed: 3 to 5 mm/s works for PLA.");
+    def->sidetext = L("mm/s");
+    def->min = 1;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(4));
+
     def = this->add("overhang_reverse", coBool);
     def->label = L("Reverse on even");
     def->full_label = L("Overhang reversal");

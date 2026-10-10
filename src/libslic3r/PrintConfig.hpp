@@ -1584,6 +1584,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionBool,                 extra_perimeters_on_overhangs))
     // PillSlicer: print flat overhangs as concentric arcs instead of needing supports.
     ((ConfigOptionBool,                 arc_overhangs))
+    ((ConfigOptionFloat,                arc_overhang_speed))
     ((ConfigOptionBoolsNullable,        slowdown_for_curled_perimeters))
     ((ConfigOptionBool,                 hole_to_polyhole))
     ((ConfigOptionFloatOrPercent,       hole_to_polyhole_threshold))

@@ -9210,6 +9210,9 @@ std::string GCode::_extrude(const ExtrusionPath &path, const std::string &path_d
             throw Slic3r::InvalidArgument("Invalid speed");
         }
     }
+    // PillSlicer: an arc hangs in the air until it has cooled, so arcs keep their own slow speed whoever asked.
+    if (path.arc_overhang && m_config.arc_overhang_speed.value > 0)
+        speed = m_config.arc_overhang_speed.value;
     //BBS: if not set the speed, then use the filament_max_volumetric_speed directly
     double filament_max_volumetric_speed = FILAMENT_CONFIG(filament_max_volumetric_speed);
     if (FILAMENT_CONFIG(filament_adaptive_volumetric_speed)){
@@ -9332,7 +9335,7 @@ std::string GCode::_extrude(const ExtrusionPath &path, const std::string &path_d
     const bool need_overhang_detection = NOZZLE_CONFIG(enable_overhang_speed) ||
         (FILAMENT_CONFIG(enable_overhang_bridge_fan) && m_enable_cooling_markers);
 
-    if (need_overhang_detection && !path_on_first_layer && !object_layer_over_raft() &&
+    if (need_overhang_detection && !path.arc_overhang && !path_on_first_layer && !object_layer_over_raft() &&
         (is_bridge(path.role()) || is_perimeter(path.role()))) {
             bool is_external = is_external_perimeter(path.role());
             double ref_speed   = is_external ? NOZZLE_CONFIG(outer_wall_speed) : NOZZLE_CONFIG(inner_wall_speed);

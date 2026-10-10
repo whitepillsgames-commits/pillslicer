@@ -77,6 +77,47 @@ double max_distance(const Point &from, const ExPolygon &expolygon)
     return d;
 }
 
+// Joins every arc to an arc of the previous ring that ends next to it, with a short move along the
+// edge, so a fan prints as a few continuous lines. An arc started on its own begins in the air and is
+// dragged away before it can stick; one that continues the previous arc is already held at its start.
+Polylines chain_rings(std::vector<Polylines> &&rings, coord_t spacing, const ExPolygons &allowed)
+{
+    const double    max_link = 2.5 * double(spacing);
+    const Polygons  inside   = offset(allowed, float(spacing) * 0.5f);
+    Polylines           chains;
+    std::vector<size_t> open; // chains that took an arc of the previous ring
+    for (Polylines &ring : rings) {
+        std::vector<size_t> next_open;
+        for (Polyline &arc : ring) {
+            auto   best      = open.end();
+            bool   flip      = false;
+            double best_dist = max_link * max_link;
+            for (auto it = open.begin(); it != open.end(); ++it) {
+                const Point &end = chains[*it].last_point();
+                const double to_first = (arc.first_point() - end).cast<double>().squaredNorm();
+                const double to_last  = (arc.last_point() - end).cast<double>().squaredNorm();
+                if (to_first <= best_dist) { best = it; flip = false; best_dist = to_first; }
+                if (to_last < best_dist)   { best = it; flip = true;  best_dist = to_last; }
+            }
+            if (best != open.end()) {
+                if (flip)
+                    arc.reverse();
+                Polyline &chain = chains[*best];
+                if (diff_pl(Polylines{ Polyline(chain.last_point(), arc.first_point()) }, inside).empty()) {
+                    chain.points.insert(chain.points.end(), arc.points.begin(), arc.points.end());
+                    next_open.emplace_back(*best);
+                    open.erase(best);
+                    continue;
+                }
+            }
+            chains.emplace_back(std::move(arc));
+            next_open.emplace_back(chains.size() - 1);
+        }
+        open = std::move(next_open);
+    }
+    return chains;
+}
+
 } // namespace
 
 ExPolygons arc_overhang_regions(const ExPolygons &slice, const ExPolygons &supported, const ArcOverhangParams &params)
@@ -129,18 +170,27 @@ Polylines generate_arc_overhang(const ExPolygon &overhang, const ExPolygons &sli
             continue;
         }
 
-        // Start each circle on the side of the printed material, so clipping does not split an arc
-        // at the circle's seam.
-        const Vec2d  away        = (center - target).cast<double>();
-        const double start_angle = away.squaredNorm() > 0. ? std::atan2(away.y(), away.x()) : 0.;
+        // Start each circle inside the printed material it leans on, so clipping does not split an arc
+        // at the circle's seam and the arc ends, where arcs get linked, sit on that material.
+        Vec2d toward_printed = (center - target).cast<double>();
+        {
+            Polyline   probe = circle(center, 2 * spacing, 0., params.max_segment_length);
+            probe.points.pop_back();
+            ExPolygons near  = intersection_ex(ExPolygons{ ExPolygon(Polygon(probe.points)) }, covered);
+            if (!near.empty()) {
+                auto biggest   = std::max_element(near.begin(), near.end(),
+                                                  [](const ExPolygon &a, const ExPolygon &b) { return a.area() < b.area(); });
+                toward_printed = (biggest->contour.centroid() - center).cast<double>();
+            }
+        }
+        const double start_angle = toward_printed.squaredNorm() > 0. ? std::atan2(toward_printed.y(), toward_printed.x()) : 0.;
 
         const ExPolygons fan_area = intersection_ex(allowed, offset(region, float(params.anchor_overlap)));
         const double     max_r    = max_distance(center, region) + double(spacing);
         // An arc must lie next to material printed before it, never stand alone in the air.
-        Polygons  reach       = offset(covered, float(spacing) * 1.5f);
-        Polylines fan;
-        size_t    misses      = 0;
-        bool      reverse     = false;
+        Polygons               reach  = offset(covered, float(spacing) * 1.5f);
+        std::vector<Polylines> rings;
+        size_t                 misses = 0;
         for (double r = double(spacing); r <= max_r; r += double(spacing)) {
             Polylines pieces = intersection_pl(Polylines{ circle(center, coord_t(r), start_angle, params.max_segment_length) }, fan_area);
             Polylines kept;
@@ -154,14 +204,10 @@ Polylines generate_arc_overhang(const ExPolygon &overhang, const ExPolygons &sli
                 continue;
             }
             misses = 0;
-            // Alternate the direction ring by ring, so each arc starts near where the previous one ended.
-            if (reverse)
-                for (Polyline &piece : kept)
-                    piece.reverse();
-            reverse = !reverse;
             reach = union_(reach, offset(kept, float(spacing) * 1.5f));
-            append(fan, kept);
+            rings.emplace_back(std::move(kept));
         }
+        Polylines fan = chain_rings(std::move(rings), spacing, allowed);
         if (fan.empty()) {
             remaining.erase(remaining.begin() + (largest - remaining.begin()));
             continue;
@@ -278,9 +324,10 @@ void make_arc_overhangs(Layer &layer)
             auto *collection    = new ExtrusionEntityCollection();
             collection->no_sort = true;
             for (Polyline &arc : arcs) {
-                // Printed as an overhang wall: slowed down and cooled like any wall hanging in the air.
-                auto *path     = new ExtrusionPath(erOverhangPerimeter, flow.mm3_per_mm(), flow.width(), flow.height());
-                path->polyline = Polyline3(arc);
+                // An overhang wall for the fan, printed at its own slow speed.
+                auto *path         = new ExtrusionPath(erOverhangPerimeter, flow.mm3_per_mm(), flow.width(), flow.height());
+                path->polyline     = Polyline3(arc);
+                path->arc_overhang = true;
                 collection->entities.emplace_back(path);
             }
             layerm->fills.entities.emplace_back(collection);
