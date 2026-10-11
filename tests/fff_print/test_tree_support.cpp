@@ -301,6 +301,35 @@ TriangleMesh plate_on_pillar()
 
 } // namespace
 
+// Measures each economical change on its own, to keep only those that pay off on every part.
+TEST_CASE("Each economical support change is measured on its own", "[TreeSupport][PillSlicer]")
+{
+    struct Part { const char *name; TriangleMesh mesh; };
+    const std::vector<Part> parts {
+        { "A", load_model("A_upsidedown.obj") },
+        { "idler", load_model("extruder_idler.obj") },
+        { "plate", plate_on_pillar() },
+    };
+    struct Variant { const char *name; std::initializer_list<ConfigBase::SetDeserializeItem> items; };
+    const std::vector<Variant> variants {
+        { "dist2",  { { "tree_support_branch_distance_organic", "2" } } },
+        { "angles", { { "tree_support_angle_slow", "30" }, { "tree_support_branch_angle_organic", "45" } } },
+        { "iface2", { { "support_interface_top_layers", "2" } } },
+        { "speed",  { { "support_speed", "250" }, { "support_interface_speed", "80" } } },
+    };
+    for (const Part &part : parts) {
+        const SupportCost base = support_cost(slice({ part.mesh }, pillslicer_support_config(false)));
+        REQUIRE(base.filament_mm > 0.);
+        for (const Variant &variant : variants) {
+            DynamicPrintConfig config = pillslicer_support_config(false);
+            config.set_deserialize_strict(variant.items);
+            const SupportCost cost = support_cost(slice({ part.mesh }, config));
+            WARN("PILLSLICER_MEASURE " << part.name << " " << variant.name << " fil%=" << int(100. * cost.filament_mm / base.filament_mm)
+                 << " time%=" << int(100. * cost.seconds / base.seconds));
+        }
+    }
+}
+
 TEST_CASE("Economical supports use less filament and time and still carry an interface", "[TreeSupport][PillSlicer]")
 {
     struct Part { const char *name; TriangleMesh mesh; };
@@ -312,8 +341,8 @@ TEST_CASE("Economical supports use less filament and time and still carry an int
     for (const Part &part : parts) {
         const SupportCost before = support_cost(slice({ part.mesh }, pillslicer_support_config(false)));
         const SupportCost after  = support_cost(slice({ part.mesh }, pillslicer_support_config(true)));
-        WARN("PILLSLICER_MEASURE supports " << part.name << ": filament " << before.filament_mm << " -> " << after.filament_mm
-             << " mm, support time " << before.seconds / 60. << " -> " << after.seconds / 60. << " min");
+        WARN("PILLSLICER_MEASURE " << part.name << " fil=" << int(before.filament_mm) << "->" << int(after.filament_mm)
+             << "mm time=" << int(before.seconds) << "->" << int(after.seconds) << "s");
         CAPTURE(part.name, before.filament_mm, after.filament_mm, before.seconds, after.seconds);
         REQUIRE(before.filament_mm > 0.);
         CHECK(after.filament_mm < before.filament_mm);
