@@ -19,6 +19,7 @@
 #include "libslic3r/GCodeReader.hpp"
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 #include "test_utils.hpp"
 
@@ -310,7 +311,8 @@ TEST_CASE("Each economical support change is measured on its own", "[TreeSupport
         { "idler", load_model("extruder_idler.obj") },
         { "plate", plate_on_pillar() },
     };
-    struct Variant { const char *name; std::initializer_list<ConfigBase::SetDeserializeItem> items; };
+    // Owned strings: an initializer_list member would dangle once `variants` is built.
+    struct Variant { const char *name; std::vector<std::pair<std::string, std::string>> items; };
     const std::vector<Variant> variants {
         { "dist2",  { { "tree_support_branch_distance_organic", "2" } } },
         { "angles", { { "tree_support_angle_slow", "30" }, { "tree_support_branch_angle_organic", "45" } } },
@@ -322,7 +324,8 @@ TEST_CASE("Each economical support change is measured on its own", "[TreeSupport
         REQUIRE(base.filament_mm > 0.);
         for (const Variant &variant : variants) {
             DynamicPrintConfig config = pillslicer_support_config(false);
-            config.set_deserialize_strict(variant.items);
+            for (const auto &[key, value] : variant.items)
+                config.set_deserialize_strict(key, value);
             const SupportCost cost = support_cost(slice({ part.mesh }, config));
             WARN("PILLSLICER_MEASURE " << part.name << " " << variant.name << " fil%=" << int(100. * cost.filament_mm / base.filament_mm)
                  << " time%=" << int(100. * cost.seconds / base.seconds));
