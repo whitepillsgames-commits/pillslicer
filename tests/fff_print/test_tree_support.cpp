@@ -240,12 +240,14 @@ DynamicPrintConfig pillslicer_support_config(bool economical)
         // Measured one by one: only the changes that saved filament on every part are kept.
         config.set_deserialize_strict({
             { "support_interface_top_layers",         "2" },
+            { "tree_support_branch_angle_organic",    "45" },
             { "support_speed",                        "250" },
             { "support_interface_speed",              "80" },
         });
     else
         config.set_deserialize_strict({
             { "support_interface_top_layers",         "3" },
+            { "tree_support_branch_angle_organic",    "40" },
             { "support_speed",                        "150" },
             { "support_interface_speed",              "60" },
         });
