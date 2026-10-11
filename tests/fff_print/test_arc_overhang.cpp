@@ -68,6 +68,9 @@ TEST_CASE("Arc overhangs print the first layer of a flat overhang as arcs", "[Ar
     const double with_arcs    = max_layer_length(overhang_wall_length_by_layer(sliced(true)));
     const double without_arcs = max_layer_length(overhang_wall_length_by_layer(sliced(false)));
     CAPTURE(with_arcs, without_arcs);
+    // Reported by the CI run as a measurement: 4 mm/s is the default arc speed.
+    WARN("PILLSLICER_MEASURE arc overhangs, 30 mm plate on a 10 mm pillar: " << with_arcs << " mm of arcs, about "
+         << with_arcs / 4. / 60. << " min at 4 mm/s");
     CHECK(with_arcs > 1000.);
     CHECK(with_arcs > 3. * without_arcs);
 }

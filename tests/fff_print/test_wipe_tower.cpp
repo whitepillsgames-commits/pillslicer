@@ -9,6 +9,7 @@
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Print.hpp"
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
@@ -22,6 +23,7 @@
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/GCode/GCodeProcessor.hpp"
 #include "libslic3r/GCode/WipeTower.hpp"
+#include "libslic3r/GCodeReader.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
 #include "test_helpers.hpp"
@@ -458,4 +460,48 @@ TEST_CASE("A tower printed without a tool change is still validated against the 
     REQUIRE(print.has_wipe_tower());
     CHECK(print.wipe_tower_data(1).depth > 0.f);
     CHECK_THAT(print.validate().string, Catch::Matchers::ContainsSubstring("printable area"));
+}
+
+// PillSlicer: filament extruded into the prime tower, in mm of filament.
+static double tower_filament_mm(const std::string &gcode, const PrintConfig &config)
+{
+    GCodeReader reader;
+    reader.apply_config(config);
+    bool   in_tower = false;
+    double length   = 0.;
+    reader.parse_buffer(gcode, [&](GCodeReader &self, const GCodeReader::GCodeLine &line) {
+        const std::string_view raw = line.raw();
+        constexpr std::string_view type_tag = ";TYPE:";
+        if (raw.substr(0, type_tag.size()) == type_tag) {
+            in_tower = raw.substr(type_tag.size()).find("Prime tower") == 0;
+            return;
+        }
+        if (in_tower && line.extruding(self))
+            length += line.dist_E(self);
+    });
+    return length;
+}
+
+// The PillSlicer profiles skip the tower on layers without a filament change. On a print that only
+// changes filament near the top, such as a coloured lid or a logo, the tower no longer climbs the whole
+// height of the part.
+TEST_CASE("Skipping sparse tower layers saves filament when colours change only near the top", "[WipeTower][PillSlicer]")
+{
+    const auto tower_mm = [](bool skip_sparse) {
+        DynamicPrintConfig config = sparse_run_config(0.2, "0.28", false);
+        config.set_deserialize_strict({ { "wipe_tower_no_sparse_layers", skip_sparse ? "1" : "0" } });
+        Print print;
+        Model model;
+        init_print({ cube(10) }, print, model, config);
+        print.apply(model, config);
+        print.process();
+        return tower_filament_mm(Slic3r::Test::gcode(print), print.config());
+    };
+    const double every_layer = tower_mm(false);
+    const double only_changes = tower_mm(true);
+    // Reported by the CI run as a measurement.
+    WARN("PILLSLICER_MEASURE prime tower filament, 10 mm cube with a top in a second colour: "
+         << every_layer << " mm with the tower on every layer, " << only_changes << " mm with sparse layers skipped");
+    REQUIRE(every_layer > 0.);
+    CHECK(only_changes < 0.5 * every_layer);
 }

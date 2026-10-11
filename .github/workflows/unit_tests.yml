@@ -75,6 +75,13 @@ jobs:
                   keep = [l for l in lines if any(k in l for k in ('FAILED', 'REQUIRE', 'CHECK', 'with expansion', 'with message', ' == ', ' > ', 'due to', 'test cases'))]
                   print('::error title=' + esc(case.get('name', '?')) + '::' + esc('\n'.join((keep or lines)[-40:])[:3500]))
           PY
+      # PillSlicer: tests that measure something print a PILLSLICER_MEASURE line; show them on the run.
+      - name: Report measurements
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          [ -f ctest_results.xml ] || exit 0
+          grep -o 'PILLSLICER_MEASURE[^<]*' ctest_results.xml | sed 's/^PILLSLICER_MEASURE /::notice title=Measure::/' | sort -u || true
       - name: Upload Test Logs
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7

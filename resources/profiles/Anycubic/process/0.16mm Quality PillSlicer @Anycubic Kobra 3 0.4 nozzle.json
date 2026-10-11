@@ -62,6 +62,7 @@
 	"tree_support_branch_distance_organic": "1",
 	"tree_support_tip_diameter": "0.8",
 	"tree_support_auto_brim": "1",
+	"wipe_tower_no_sparse_layers": "1",
 	"outer_wall_speed": "90",
 	"inner_wall_speed": "180",
 	"internal_solid_infill_speed": "150",

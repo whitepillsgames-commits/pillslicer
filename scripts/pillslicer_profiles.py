@@ -67,6 +67,9 @@ COMMON = {
     "tree_support_branch_distance_organic": "1",
     "tree_support_tip_diameter": "0.8",
     "tree_support_auto_brim": "1",
+    # Multicolour: no prime tower on layers without a filament change, so the tower stops climbing
+    # the whole part when colours only change on some layers.
+    "wipe_tower_no_sparse_layers": "1",
 }
 
 # What each profile changes, independent of the machine.

@@ -301,9 +301,18 @@ void make_arc_overhangs(Layer &layer)
         if (slice.empty())
             continue;
 
-        const Flow        flow = layerm->flow(frExternalPerimeter);
+        // Extruded into the air, plastic does not flatten into a line the way it does on the layer below:
+        // it hangs as a round thread. With the regular wall flow that thread is only ~0.3 mm thick for a
+        // 0.4 mm nozzle while the walls are spaced ~0.38 mm apart, so neighbouring arcs never touched and
+        // sagged apart on the first prints. Arcs are therefore extruded as threads as thick as the nozzle,
+        // and spaced closer than that so each one is pressed into the one before it.
+        const Flow   flow            = layerm->flow(frExternalPerimeter);
+        const double thread_diameter = flow.nozzle_diameter();
+        const double thread_area     = PI * thread_diameter * thread_diameter / 4.;
+        constexpr double thread_spacing_ratio = 0.75;
+
         ArcOverhangParams params;
-        params.spacing        = std::max<coord_t>(flow.scaled_spacing(), 1);
+        params.spacing        = std::max<coord_t>(scaled<coord_t>(thread_diameter * thread_spacing_ratio), 1);
         params.outline_inset  = flow.scaled_width() / 2;
         params.anchor_overlap = flow.scaled_width();
         params.min_feature    = 4 * params.spacing;
@@ -325,7 +334,7 @@ void make_arc_overhangs(Layer &layer)
             collection->no_sort = true;
             for (Polyline &arc : arcs) {
                 // An overhang wall for the fan, printed at its own slow speed.
-                auto *path         = new ExtrusionPath(erOverhangPerimeter, flow.mm3_per_mm(), flow.width(), flow.height());
+                auto *path         = new ExtrusionPath(erOverhangPerimeter, thread_area, float(thread_diameter), float(thread_diameter));
                 path->polyline     = Polyline3(arc);
                 path->arc_overhang = true;
                 collection->entities.emplace_back(path);
