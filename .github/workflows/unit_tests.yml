@@ -83,7 +83,9 @@ jobs:
           # ctest keeps the output of failed tests only, so run the measuring tests directly.
           exe=$(find "${{ inputs.test-dir }}" -name 'fff_print_tests*' -type f \( -name '*.exe' -o -perm -u+x \) | head -1)
           [ -n "$exe" ] || exit 0
-          "$exe" "[PillSlicer]" 2>&1 | grep -o 'PILLSLICER_MEASURE.*' | sed 's/^PILLSLICER_MEASURE /::notice title=Measure::/' || true
+          # GitHub keeps at most 10 annotations per step, so all measurements go into one.
+          lines=$("$exe" "[PillSlicer]" 2>&1 | grep -o 'PILLSLICER_MEASURE.*' | sed 's/^PILLSLICER_MEASURE //' || true)
+          [ -n "$lines" ] && echo "::notice title=Measures::$(printf '%s' "$lines" | sed ':a;N;$!ba;s/\n/%0A/g')" || true
       - name: Upload Test Logs
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
