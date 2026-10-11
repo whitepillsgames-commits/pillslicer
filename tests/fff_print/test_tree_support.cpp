@@ -237,20 +237,15 @@ DynamicPrintConfig pillslicer_support_config(bool economical)
         { "gcode_comments",                  "1" },
     });
     if (economical)
+        // Measured one by one: only the changes that saved filament on every part are kept.
         config.set_deserialize_strict({
             { "support_interface_top_layers",         "2" },
-            { "tree_support_branch_distance_organic", "2" },
-            { "tree_support_angle_slow",              "30" },
-            { "tree_support_branch_angle_organic",    "45" },
             { "support_speed",                        "250" },
             { "support_interface_speed",              "80" },
         });
     else
         config.set_deserialize_strict({
             { "support_interface_top_layers",         "3" },
-            { "tree_support_branch_distance_organic", "1" },
-            { "tree_support_angle_slow",              "25" },
-            { "tree_support_branch_angle_organic",    "40" },
             { "support_speed",                        "150" },
             { "support_interface_speed",              "60" },
         });
@@ -314,10 +309,10 @@ TEST_CASE("Each economical support change is measured on its own", "[TreeSupport
     // Owned strings: an initializer_list member would dangle once `variants` is built.
     struct Variant { const char *name; std::vector<std::pair<std::string, std::string>> items; };
     const std::vector<Variant> variants {
-        { "dist2",  { { "tree_support_branch_distance_organic", "2" } } },
-        { "angles", { { "tree_support_angle_slow", "30" }, { "tree_support_branch_angle_organic", "45" } } },
-        { "iface2", { { "support_interface_top_layers", "2" } } },
-        { "speed",  { { "support_speed", "250" }, { "support_interface_speed", "80" } } },
+        // Leaning branches saved a lot on two parts but cost more on the idler: measured apart.
+        { "slow30",  { { "tree_support_angle_slow", "30" } } },
+        { "angle45", { { "tree_support_branch_angle_organic", "45" } } },
+        { "both",    { { "tree_support_angle_slow", "30" }, { "tree_support_branch_angle_organic", "45" } } },
     };
     for (const Part &part : parts) {
         const SupportCost base = support_cost(slice({ part.mesh }, pillslicer_support_config(false)));

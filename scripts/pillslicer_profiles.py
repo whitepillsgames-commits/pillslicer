@@ -63,12 +63,9 @@ COMMON = {
     "support_base_pattern": "default",
     "support_base_pattern_spacing": "2.5",
     "independent_support_layer_height": "1",
-    # Branches may lean more and prefer to, so they merge into fewer trunks sooner.
-    "tree_support_branch_angle_organic": "45",
-    "tree_support_angle_slow": "30",
+    "tree_support_branch_angle_organic": "40",
     "tree_support_branch_diameter_organic": "2",
-    # Tips 2 mm apart instead of 1: the interface bridges the gap, the branches below halve.
-    "tree_support_branch_distance_organic": "2",
+    "tree_support_branch_distance_organic": "1",
     "tree_support_tip_diameter": "0.8",
     "tree_support_auto_brim": "1",
     # Multicolour: no prime tower on layers without a filament change, so the tower stops climbing
