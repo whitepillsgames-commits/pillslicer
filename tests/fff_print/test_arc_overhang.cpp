@@ -56,7 +56,7 @@ double max_layer_length(const std::map<double, double> &by_layer)
 
 // The first layer of the plate is printed as a fan of arcs: well over a metre of overhang wall on that
 // layer, where the regular walls and bridge infill lay down a fraction of it.
-TEST_CASE("Arc overhangs print the first layer of a flat overhang as arcs", "[ArcOverhang]")
+TEST_CASE("Arc overhangs print the first layer of a flat overhang as arcs", "[ArcOverhang][PillSlicer]")
 {
     const auto sliced = [](bool arcs) {
         return slice({ mushroom() }, {
@@ -69,8 +69,8 @@ TEST_CASE("Arc overhangs print the first layer of a flat overhang as arcs", "[Ar
     const double without_arcs = max_layer_length(overhang_wall_length_by_layer(sliced(false)));
     CAPTURE(with_arcs, without_arcs);
     // Reported by the CI run as a measurement: 4 mm/s is the default arc speed.
-    WARN("PILLSLICER_MEASURE arc overhangs, 30 mm plate on a 10 mm pillar: " << with_arcs << " mm of arcs, about "
-         << with_arcs / 4. / 60. << " min at 4 mm/s");
+    WARN("PILLSLICER_MEASURE arcs_mm=" << with_arcs << " arcs_min_at_4mm_s=" << with_arcs / 4. / 60.
+         << " (30 mm plate on a 10 mm pillar)");
     CHECK(with_arcs > 1000.);
     CHECK(with_arcs > 3. * without_arcs);
 }
