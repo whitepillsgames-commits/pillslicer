@@ -16,6 +16,11 @@
 #include "test_helpers.hpp"
 #include "libslic3r/ExtrusionEntityCollection.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/GCodeReader.hpp"
+#include <string>
+#include <string_view>
+#include <vector>
+#include "test_utils.hpp"
 
 using namespace Slic3r::Test;
 using namespace Slic3r;
@@ -197,4 +202,123 @@ TEST_CASE("Tree support toolpaths do not depend on the MST tie order", "[TreeSup
         { "tree_support_branch_angle",    40 },
         { "support_line_width",           0.4 },
     });
+}
+
+// ---------------------------------------------------------------------------------------------------
+// PillSlicer: economical supports. The PillSlicer profiles trade a little density at the branch tips
+// for less filament and time; these cases measure both settings on parts that need support.
+// ---------------------------------------------------------------------------------------------------
+
+namespace {
+
+// Support settings shared by both variants: organic trees under a 3-layer interface, as in the
+// PillSlicer Balanced profile for the Kobra S1.
+DynamicPrintConfig pillslicer_support_config(bool economical)
+{
+    DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
+    config.set_deserialize_strict({
+        { "layer_height",                    "0.2" },
+        { "initial_layer_print_height",      "0.2" },
+        { "enable_support",                  "1" },
+        { "support_type",                    "tree(auto)" },
+        { "support_style",                   "organic" },
+        { "support_threshold_angle",         "30" },
+        { "support_on_build_plate_only",     "0" },
+        { "support_object_xy_distance",      "0.4" },
+        { "support_top_z_distance",          "0.2" },
+        { "support_bottom_z_distance",       "0.2" },
+        { "support_interface_pattern",       "rectilinear_interlaced" },
+        { "support_interface_spacing",       "0.25" },
+        { "support_interface_bottom_layers", "0" },
+        { "support_line_width",              "0.42" },
+        { "tree_support_branch_diameter_organic", "2" },
+        { "tree_support_tip_diameter",       "0.8" },
+        { "gcode_comments",                  "1" },
+    });
+    if (economical)
+        config.set_deserialize_strict({
+            { "support_interface_top_layers",         "2" },
+            { "tree_support_branch_distance_organic", "2" },
+            { "tree_support_angle_slow",              "30" },
+            { "tree_support_branch_angle_organic",    "45" },
+            { "support_speed",                        "250" },
+            { "support_interface_speed",              "80" },
+        });
+    else
+        config.set_deserialize_strict({
+            { "support_interface_top_layers",         "3" },
+            { "tree_support_branch_distance_organic", "1" },
+            { "tree_support_angle_slow",              "25" },
+            { "tree_support_branch_angle_organic",    "40" },
+            { "support_speed",                        "150" },
+            { "support_interface_speed",              "60" },
+        });
+    return config;
+}
+
+struct SupportCost
+{
+    double filament_mm = 0.; // filament pushed into support and support interface
+    double seconds     = 0.; // time spent moving while extruding support, from the feedrates
+    double interface_mm = 0.;
+};
+
+SupportCost support_cost(const std::string &gcode)
+{
+    SupportCost cost;
+    bool in_support = false, in_interface = false;
+    GCodeReader reader;
+    reader.parse_buffer(gcode, [&](GCodeReader &self, const GCodeReader::GCodeLine &line) {
+        const std::string_view raw = line.raw();
+        constexpr std::string_view type_tag = ";TYPE:";
+        if (raw.substr(0, type_tag.size()) == type_tag) {
+            const std::string_view role = raw.substr(type_tag.size());
+            in_support   = role.find("Support") == 0;
+            in_interface = role.find("Support interface") == 0;
+            return;
+        }
+        if (!in_support || !line.extruding(self))
+            return;
+        const double e = line.dist_E(self);
+        cost.filament_mm += e;
+        if (in_interface)
+            cost.interface_mm += e;
+        const double feedrate = line.has_f() ? line.f() : self.f();
+        if (feedrate > 0.)
+            cost.seconds += line.dist_XY(self) / (feedrate / 60.);
+    });
+    return cost;
+}
+
+TriangleMesh plate_on_pillar()
+{
+    TriangleMesh mesh  = make_cube(12., 12., 15.2);
+    TriangleMesh plate = make_cube(36., 36., 2.4);
+    plate.translate(-12.f, -12.f, 15.f);
+    mesh.merge(plate);
+    return mesh;
+}
+
+} // namespace
+
+TEST_CASE("Economical supports use less filament and time and still carry an interface", "[TreeSupport][PillSlicer]")
+{
+    struct Part { const char *name; TriangleMesh mesh; };
+    const std::vector<Part> parts {
+        { "letter A upside down", load_model("A_upsidedown.obj") },
+        { "extruder idler",       load_model("extruder_idler.obj") },
+        { "plate on a pillar",    plate_on_pillar() },
+    };
+    for (const Part &part : parts) {
+        const SupportCost before = support_cost(slice({ part.mesh }, pillslicer_support_config(false)));
+        const SupportCost after  = support_cost(slice({ part.mesh }, pillslicer_support_config(true)));
+        WARN("PILLSLICER_MEASURE supports " << part.name << ": filament " << before.filament_mm << " -> " << after.filament_mm
+             << " mm, support time " << before.seconds / 60. << " -> " << after.seconds / 60. << " min");
+        CAPTURE(part.name, before.filament_mm, after.filament_mm, before.seconds, after.seconds);
+        REQUIRE(before.filament_mm > 0.);
+        CHECK(after.filament_mm < before.filament_mm);
+        CHECK(after.seconds < before.seconds);
+        // The part still rests on an interface: two layers instead of three.
+        CHECK(after.interface_mm > 0.4 * before.interface_mm);
+    }
 }

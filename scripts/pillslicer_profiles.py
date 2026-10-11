@@ -52,19 +52,23 @@ COMMON = {
     "support_on_build_plate_only": "0",
     "support_remove_small_overhang": "1",
     "support_object_xy_distance": "0.4",
-    "support_interface_top_layers": "3",
+    # Economical supports: two interface layers (three on Detail and Quality, see STYLES).
+    "support_interface_top_layers": "2",
     "support_interface_bottom_layers": "0",
     "support_interface_pattern": "rectilinear_interlaced",
     "support_interface_spacing": "0.25",
     "support_interface_not_for_body": "1",
-    "support_interface_speed": "60",
+    "support_interface_speed": "80",
     "support_line_width": "0.42",
     "support_base_pattern": "default",
     "support_base_pattern_spacing": "2.5",
     "independent_support_layer_height": "1",
-    "tree_support_branch_angle_organic": "40",
+    # Branches may lean more and prefer to, so they merge into fewer trunks sooner.
+    "tree_support_branch_angle_organic": "45",
+    "tree_support_angle_slow": "30",
     "tree_support_branch_diameter_organic": "2",
-    "tree_support_branch_distance_organic": "1",
+    # Tips 2 mm apart instead of 1: the interface bridges the gap, the branches below halve.
+    "tree_support_branch_distance_organic": "2",
     "tree_support_tip_diameter": "0.8",
     "tree_support_auto_brim": "1",
     # Multicolour: no prime tower on layers without a filament change, so the tower stops climbing
@@ -78,6 +82,8 @@ STYLES = {
         "layer": 0.12,
         "label": "fine details, figurines, text",
         "overrides": {
+            "support_interface_top_layers": "3",
+            "support_interface_speed": "60",
             "wall_loops": "3",
             "top_shell_layers": "7",
             "bottom_shell_layers": "5",
@@ -91,6 +97,8 @@ STYLES = {
         "layer": 0.16,
         "label": "best visual result for display parts",
         "overrides": {
+            "support_interface_top_layers": "3",
+            "support_interface_speed": "60",
             "wall_loops": "3",
             "top_shell_layers": "6",
             "bottom_shell_layers": "4",
@@ -152,6 +160,8 @@ MACHINES = {
             "Strong":   dict(outer=110, inner=180, solid=160, top=120, sparse=250, oacc=2500, iacc=5000, tacc=2000, dacc=6000),
         },
         "travel": dict(speed=350, acc=10000),
+        # Support looks do not matter; the bed still carries the part, so stay below the S1.
+        "support_speed": 180,
     },
     # CoreXY with a light toolhead: higher speeds, still soft on the visible wall.
     "Anycubic Kobra S1 0.4 nozzle": {
@@ -164,6 +174,7 @@ MACHINES = {
             "Strong":   dict(outer=150, inner=250, solid=220, top=160, sparse=270, oacc=3500, iacc=6000, tacc=2500, dacc=8000),
         },
         "travel": dict(speed=400, acc=10000),
+        "support_speed": 250,
     },
 }
 
@@ -197,7 +208,7 @@ def build(machine, cfg, style_name, style):
         "top_surface_speed": fmt(m["top"]),
         "sparse_infill_speed": fmt(m["sparse"]),
         "gap_infill_speed": fmt(m["outer"]),
-        "support_speed": fmt(min(150, m["inner"])),
+        "support_speed": fmt(cfg["support_speed"]),
         "outer_wall_acceleration": fmt(m["oacc"]),
         "inner_wall_acceleration": fmt(m["iacc"]),
         "top_surface_acceleration": fmt(m["tacc"]),
